@@ -6,11 +6,14 @@ interface Props {
   positions: number[] | null
   colors: number[] | null
   flipped: boolean
+  pointSizeMultiplier: number
 }
 
-export function PointCloudViewer({ positions, colors, flipped }: Props) {
+export function PointCloudViewer({ positions, colors, flipped, pointSizeMultiplier }: Props) {
   const mountRef = useRef<HTMLDivElement>(null)
   const pointsRef = useRef<THREE.Points | null>(null)
+  const baseSizeRef = useRef<number>(0.01)
+  const materialRef = useRef<THREE.PointsMaterial | null>(null)
 
   // Main scene effect — rebuild when data changes
   useEffect(() => {
@@ -50,12 +53,16 @@ export function PointCloudViewer({ positions, colors, flipped }: Props) {
     box.getSize(size)
     const maxDim = Math.max(size.x, size.y, size.z)
 
+    const baseSize = maxDim / 800
+    baseSizeRef.current = baseSize
+
     const material = new THREE.PointsMaterial({
-      size: maxDim / 800,
+      size: baseSize * pointSizeMultiplier,
       sizeAttenuation: true,
       vertexColors: !!hasColors,
       ...(hasColors ? {} : { color: 0x888888 }),
     })
+    materialRef.current = material
 
     const points = new THREE.Points(geometry, material)
     points.rotation.x = flipped ? Math.PI : 0
@@ -84,6 +91,7 @@ export function PointCloudViewer({ positions, colors, flipped }: Props) {
 
     return () => {
       pointsRef.current = null
+      materialRef.current = null
       cancelAnimationFrame(animId)
       ro.disconnect()
       if (mount.contains(renderer.domElement)) {
@@ -101,6 +109,14 @@ export function PointCloudViewer({ positions, colors, flipped }: Props) {
       pointsRef.current.rotation.x = flipped ? Math.PI : 0
     }
   }, [flipped])
+
+  // Point size effect — update material imperatively
+  useEffect(() => {
+    if (materialRef.current) {
+      materialRef.current.size = baseSizeRef.current * pointSizeMultiplier
+      materialRef.current.needsUpdate = true
+    }
+  }, [pointSizeMultiplier])
 
   return (
     <div ref={mountRef} className="relative h-full w-full">
