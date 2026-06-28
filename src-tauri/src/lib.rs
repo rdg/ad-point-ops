@@ -1,5 +1,6 @@
 mod operators;
 
+use operators::preview::read_ply_preview;
 use operators::splat_to_sketchfab::splat_to_sketchfab;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -16,7 +17,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![splat_to_sketchfab])
+        .invoke_handler(tauri::generate_handler![splat_to_sketchfab, read_ply_preview])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
