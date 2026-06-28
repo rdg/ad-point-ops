@@ -28,7 +28,6 @@ export function PointCloudViewer({ positions, colors }: Props) {
     controls.enableDamping = true
     controls.dampingFactor = 0.05
 
-    // Build geometry
     const posArray = new Float32Array(positions)
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute("position", new THREE.BufferAttribute(posArray, 3))
@@ -47,13 +46,12 @@ export function PointCloudViewer({ positions, colors }: Props) {
     const size = new THREE.Vector3()
     box.getSize(size)
     const maxDim = Math.max(size.x, size.y, size.z)
-    const pointSize = maxDim / 800
 
     const material = new THREE.PointsMaterial({
-      size: pointSize,
-      vertexColors: !!hasColors,
-      color: hasColors ? undefined : 0x888888,
+      size: maxDim / 800,
       sizeAttenuation: true,
+      vertexColors: !!hasColors,
+      ...(hasColors ? {} : { color: 0x888888 }),
     })
 
     const points = new THREE.Points(geometry, material)
@@ -72,7 +70,6 @@ export function PointCloudViewer({ positions, colors }: Props) {
     animate()
 
     const onResize = () => {
-      if (!mount) return
       camera.aspect = mount.clientWidth / mount.clientHeight
       camera.updateProjectionMatrix()
       renderer.setSize(mount.clientWidth, mount.clientHeight)
@@ -83,20 +80,24 @@ export function PointCloudViewer({ positions, colors }: Props) {
     return () => {
       cancelAnimationFrame(animId)
       ro.disconnect()
+      // Remove from DOM before disposing so WebGL context is still valid
+      if (mount.contains(renderer.domElement)) {
+        mount.removeChild(renderer.domElement)
+      }
       renderer.dispose()
       geometry.dispose()
       material.dispose()
-      mount.removeChild(renderer.domElement)
     }
   }, [positions, colors])
 
-  if (!positions) {
-    return (
-      <div ref={mountRef} className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
-        Load a PLY file to see the preview
-      </div>
-    )
-  }
-
-  return <div ref={mountRef} className="h-full w-full" />
+  // Single persistent div — always rendered so mountRef never changes identity
+  return (
+    <div ref={mountRef} className="relative h-full w-full">
+      {!positions && (
+        <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+          Load a PLY file to see the preview
+        </div>
+      )}
+    </div>
+  )
 }

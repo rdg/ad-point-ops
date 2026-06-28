@@ -5,7 +5,7 @@ use ply_rs::ply::{DefaultElement, Property};
 use ply_rs::parser::Parser;
 use serde::Serialize;
 
-const MAX_PREVIEW_POINTS: usize = 200_000;
+const MAX_PREVIEW_POINTS: usize = 50_000;
 const SH_C0: f32 = 0.28209479177387814;
 
 #[derive(Serialize)]

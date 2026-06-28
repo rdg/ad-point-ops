@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { open, save } from "@tauri-apps/plugin-dialog"
 import { invoke } from "@tauri-apps/api/core"
-import { toast, Toaster } from "sonner"
+import { toast } from "sonner"
+import { Toaster } from "@/components/ui/sonner"
 import { FolderOpen, Play, Loader2, FileDown } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -57,6 +58,8 @@ export default function App() {
     setOutputName(deriveOutputName(path, operation))
     setLoading(true)
     setPreview(null)
+    // Yield to the browser so React can commit the spinner before the invoke blocks
+    await new Promise((r) => setTimeout(r, 0))
     try {
       const result = await invoke<PointCloudPreview>("read_ply_preview", { path })
       setPreview(result)
@@ -76,6 +79,7 @@ export default function App() {
     })
     if (!outputPath) return
     setRunning(true)
+    await new Promise((r) => setTimeout(r, 0))
     try {
       const msg = await invoke<string>("splat_to_sketchfab", {
         inputPath,
