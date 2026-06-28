@@ -7,6 +7,7 @@ import { FolderOpen, Play, Loader2, FileDown, FlipVertical2 } from "lucide-react
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Slider } from "@/components/ui/slider"
 import { Toaster } from "@/components/ui/sonner"
 import {
   Select,
@@ -72,6 +73,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [running, setRunning] = useState(false)
   const [flipped, setFlipped] = useState(false)
+  const [pointSizeMultiplier, setPointSizeMultiplier] = useState(1)
 
   // Panel widths
   const [leftWidth, setLeftWidth] = useState(256)
@@ -257,17 +259,28 @@ export default function App() {
           positions={preview?.positions ?? null}
           colors={preview?.has_rgb ? (preview.colors ?? null) : null}
           flipped={flipped}
+          pointSizeMultiplier={pointSizeMultiplier}
         />
         {preview && (
-          <Button
-            variant={flipped ? "default" : "outline"}
-            size="icon"
-            className="absolute right-3 top-3 h-8 w-8"
-            title="Vorschau umdrehen"
-            onClick={() => setFlipped((f) => !f)}
-          >
-            <FlipVertical2 className="h-4 w-4" />
-          </Button>
+          <div className="absolute right-3 top-3 flex items-center gap-2">
+            <Slider
+              min={0.25}
+              max={4}
+              step={0.05}
+              value={[pointSizeMultiplier]}
+              onValueChange={([v]) => setPointSizeMultiplier(v)}
+              className="w-24"
+            />
+            <Button
+              variant={flipped ? "default" : "outline"}
+              size="icon"
+              className="h-8 w-8"
+              title="Vorschau umdrehen"
+              onClick={() => setFlipped((f) => !f)}
+            >
+              <FlipVertical2 className="h-4 w-4" />
+            </Button>
+          </div>
         )}
       </main>
     </div>
