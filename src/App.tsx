@@ -2,13 +2,13 @@ import { useState } from "react"
 import { open, save } from "@tauri-apps/plugin-dialog"
 import { invoke } from "@tauri-apps/api/core"
 import { toast } from "sonner"
-import { Toaster } from "@/components/ui/sonner"
 import { FolderOpen, Play, Loader2, FileDown } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { Toaster } from "@/components/ui/sonner"
 import {
   Select,
   SelectContent,
@@ -18,12 +18,18 @@ import {
 } from "@/components/ui/select"
 import { PointCloudViewer } from "@/components/PointCloudViewer"
 
+interface PropertyInfo {
+  name: string
+  type_name: string
+}
+
 interface PointCloudPreview {
   positions: number[]
   colors: number[]
   count: number
   total: number
   has_rgb: boolean
+  properties: PropertyInfo[]
 }
 
 const OPERATIONS = [
@@ -33,10 +39,10 @@ const OPERATIONS = [
 type Operation = (typeof OPERATIONS)[number]["value"]
 
 function deriveOutputName(inputPath: string, op: Operation): string {
-  const filename = inputPath.replace(/\\/g, "/").split("/").pop() ?? "output"
+  const filename = inputPath.replace(/\\/g, "/").split("/").pop() ?? "ausgabe"
   const stem = filename.replace(/\.ply$/i, "")
   if (op === "splat-to-sketchfab") return `${stem}_sketchfab.ply`
-  return `${stem}_out.ply`
+  return `${stem}_ausgabe.ply`
 }
 
 export default function App() {
@@ -49,8 +55,8 @@ export default function App() {
 
   async function handleLoad() {
     const selected = await open({
-      title: "Open PLY file",
-      filters: [{ name: "Point Cloud", extensions: ["ply"] }],
+      title: "PLY-Datei öffnen",
+      filters: [{ name: "Punktwolke", extensions: ["ply"] }],
     })
     if (!selected) return
     const path = typeof selected === "string" ? selected : selected[0]
@@ -58,13 +64,12 @@ export default function App() {
     setOutputName(deriveOutputName(path, operation))
     setLoading(true)
     setPreview(null)
-    // Yield to the browser so React can commit the spinner before the invoke blocks
     await new Promise((r) => setTimeout(r, 0))
     try {
       const result = await invoke<PointCloudPreview>("read_ply_preview", { path })
       setPreview(result)
     } catch (err) {
-      toast.error("Failed to load file", { description: String(err) })
+      toast.error("Fehler beim Laden", { description: String(err) })
     } finally {
       setLoading(false)
     }
@@ -73,9 +78,9 @@ export default function App() {
   async function handleRun() {
     if (!inputPath) return
     const outputPath = await save({
-      title: "Save output as",
+      title: "Ausgabe speichern unter",
       defaultPath: outputName,
-      filters: [{ name: "Point Cloud", extensions: ["ply"] }],
+      filters: [{ name: "Punktwolke", extensions: ["ply"] }],
     })
     if (!outputPath) return
     setRunning(true)
@@ -85,9 +90,9 @@ export default function App() {
         inputPath,
         outputPath,
       })
-      toast.success("Done", { description: msg })
+      toast.success("Fertig", { description: msg })
     } catch (err) {
-      toast.error("Operation failed", { description: String(err) })
+      toast.error("Fehler", { description: String(err) })
     } finally {
       setRunning(false)
     }
@@ -104,14 +109,14 @@ export default function App() {
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
       <Toaster richColors position="bottom-right" />
 
-      {/* Left panel — file */}
-      <aside className="flex w-64 shrink-0 flex-col gap-4 border-r p-4">
+      {/* Linke Spalte — Datei */}
+      <aside className="flex w-64 shrink-0 flex-col gap-4 overflow-hidden border-r p-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          File
+          Datei
         </h2>
         <Button variant="outline" className="w-full justify-start gap-2" onClick={handleLoad}>
           <FolderOpen className="h-4 w-4" />
-          Load PLY
+          PLY laden
         </Button>
 
         {filename && (
@@ -121,24 +126,48 @@ export default function App() {
             </p>
             {preview && (
               <p className="mt-1 text-muted-foreground">
-                {preview.count.toLocaleString()} pts shown
+                {preview.count.toLocaleString("de")} Punkte angezeigt
                 {preview.total !== preview.count && (
-                  <> of {preview.total.toLocaleString()}</>
+                  <> von {preview.total.toLocaleString("de")}</>
                 )}
               </p>
             )}
             {loading && (
               <p className="mt-1 flex items-center gap-1 text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" /> Loading…
+                <Loader2 className="h-3 w-3 animate-spin" /> Lädt…
               </p>
             )}
+          </div>
+        )}
+
+        {preview && preview.properties.length > 0 && (
+          <div className="flex min-h-0 flex-col gap-1">
+            <p className="text-xs font-semibold text-muted-foreground">
+              Eigenschaften ({preview.properties.length})
+            </p>
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-md border">
+              <table className="w-full text-xs">
+                <tbody>
+                  {preview.properties.map((p) => (
+                    <tr key={p.name} className="border-b last:border-0">
+                      <td className="max-w-0 truncate px-2 py-0.5 font-mono" title={p.name}>
+                        {p.name}
+                      </td>
+                      <td className="whitespace-nowrap px-2 py-0.5 text-right text-muted-foreground">
+                        {p.type_name}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </aside>
 
       <Separator orientation="vertical" />
 
-      {/* Centre panel — operation */}
+      {/* Mittlere Spalte — Operation */}
       <aside className="flex w-72 shrink-0 flex-col gap-5 border-r p-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Operation
@@ -161,14 +190,14 @@ export default function App() {
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="output-name">Output filename</Label>
+          <Label htmlFor="output-name">Ausgabedatei</Label>
           <div className="flex items-center gap-1">
             <FileDown className="h-4 w-4 shrink-0 text-muted-foreground" />
             <Input
               id="output-name"
               value={outputName}
               onChange={(e) => setOutputName(e.target.value)}
-              placeholder="output.ply"
+              placeholder="ausgabe.ply"
               className="font-mono text-xs"
             />
           </div>
@@ -185,14 +214,14 @@ export default function App() {
             ) : (
               <Play className="h-4 w-4" />
             )}
-            {running ? "Running…" : "Run"}
+            {running ? "Läuft…" : "Ausführen"}
           </Button>
         </div>
       </aside>
 
       <Separator orientation="vertical" />
 
-      {/* Right panel — preview */}
+      {/* Rechte Spalte — Vorschau */}
       <main className="min-w-0 flex-1">
         <PointCloudViewer
           positions={preview?.positions ?? null}

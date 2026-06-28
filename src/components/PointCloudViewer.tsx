@@ -95,7 +95,7 @@ export function PointCloudViewer({ positions, colors }: Props) {
     <div ref={mountRef} className="relative h-full w-full">
       {!positions && (
         <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
-          Load a PLY file to see the preview
+          PLY-Datei laden, um die Vorschau anzuzeigen
         </div>
       )}
     </div>

@@ -1,12 +1,18 @@
 use std::fs::File;
 use std::io::BufReader;
 
-use ply_rs::ply::{DefaultElement, Property};
+use ply_rs::ply::{DefaultElement, Property, PropertyType, ScalarType};
 use ply_rs::parser::Parser;
 use serde::Serialize;
 
 const MAX_PREVIEW_POINTS: usize = 50_000;
 const SH_C0: f32 = 0.28209479177387814;
+
+#[derive(Serialize)]
+pub struct PropertyInfo {
+    pub name: String,
+    pub type_name: String,
+}
 
 #[derive(Serialize)]
 pub struct PointCloudPreview {
@@ -15,6 +21,27 @@ pub struct PointCloudPreview {
     pub count: usize,
     pub total: usize,
     pub has_rgb: bool,
+    pub properties: Vec<PropertyInfo>,
+}
+
+fn scalar_type_name(st: &ScalarType) -> &'static str {
+    match st {
+        ScalarType::Char => "int8",
+        ScalarType::UChar => "uint8",
+        ScalarType::Short => "int16",
+        ScalarType::UShort => "uint16",
+        ScalarType::Int => "int32",
+        ScalarType::UInt => "uint32",
+        ScalarType::Float => "float32",
+        ScalarType::Double => "float64",
+    }
+}
+
+fn property_type_name(pt: &PropertyType) -> String {
+    match pt {
+        PropertyType::Scalar(st) => scalar_type_name(st).to_string(),
+        PropertyType::List(_, st) => format!("list<{}>", scalar_type_name(st)),
+    }
 }
 
 fn get_float(elem: &DefaultElement, key: &str) -> Option<f32> {
@@ -40,6 +67,23 @@ pub fn read_ply_preview(path: String) -> Result<PointCloudPreview, String> {
     let ply = parser
         .read_ply(&mut reader)
         .map_err(|e| format!("Failed to parse PLY: {e}"))?;
+
+    // Extract property list from header
+    let properties = ply
+        .header
+        .elements
+        .get("vertex")
+        .map(|elem_def| {
+            elem_def
+                .properties
+                .iter()
+                .map(|(name, prop_def)| PropertyInfo {
+                    name: name.clone(),
+                    type_name: property_type_name(&prop_def.data_type),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
 
     let verts = ply
         .payload
@@ -102,5 +146,6 @@ pub fn read_ply_preview(path: String) -> Result<PointCloudPreview, String> {
         count,
         total,
         has_rgb,
+        properties,
     })
 }
