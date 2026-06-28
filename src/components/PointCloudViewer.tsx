@@ -5,11 +5,14 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js"
 interface Props {
   positions: number[] | null
   colors: number[] | null
+  flipped: boolean
 }
 
-export function PointCloudViewer({ positions, colors }: Props) {
+export function PointCloudViewer({ positions, colors, flipped }: Props) {
   const mountRef = useRef<HTMLDivElement>(null)
+  const pointsRef = useRef<THREE.Points | null>(null)
 
+  // Main scene effect — rebuild when data changes
   useEffect(() => {
     const mount = mountRef.current
     if (!mount || !positions || positions.length === 0) return
@@ -55,7 +58,9 @@ export function PointCloudViewer({ positions, colors }: Props) {
     })
 
     const points = new THREE.Points(geometry, material)
+    points.rotation.x = flipped ? Math.PI : 0
     scene.add(points)
+    pointsRef.current = points
 
     camera.position.set(0, 0, maxDim * 1.5)
     controls.target.set(0, 0, 0)
@@ -78,9 +83,9 @@ export function PointCloudViewer({ positions, colors }: Props) {
     ro.observe(mount)
 
     return () => {
+      pointsRef.current = null
       cancelAnimationFrame(animId)
       ro.disconnect()
-      // Remove from DOM before disposing so WebGL context is still valid
       if (mount.contains(renderer.domElement)) {
         mount.removeChild(renderer.domElement)
       }
@@ -88,9 +93,15 @@ export function PointCloudViewer({ positions, colors }: Props) {
       geometry.dispose()
       material.dispose()
     }
-  }, [positions, colors])
+  }, [positions, colors]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Single persistent div — always rendered so mountRef never changes identity
+  // Flip effect — apply rotation imperatively without rebuilding the scene
+  useEffect(() => {
+    if (pointsRef.current) {
+      pointsRef.current.rotation.x = flipped ? Math.PI : 0
+    }
+  }, [flipped])
+
   return (
     <div ref={mountRef} className="relative h-full w-full">
       {!positions && (

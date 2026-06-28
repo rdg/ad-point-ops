@@ -1,13 +1,12 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { open, save } from "@tauri-apps/plugin-dialog"
 import { invoke } from "@tauri-apps/api/core"
 import { toast } from "sonner"
-import { FolderOpen, Play, Loader2, FileDown } from "lucide-react"
+import { FolderOpen, Play, Loader2, FileDown, FlipVertical2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import { Toaster } from "@/components/ui/sonner"
 import {
   Select,
@@ -45,6 +44,26 @@ function deriveOutputName(inputPath: string, op: Operation): string {
   return `${stem}_ausgabe.ply`
 }
 
+// Drag handle between panels
+function ResizeHandle({ onDelta }: { onDelta: (delta: number) => void }) {
+  const startX = useRef(0)
+  return (
+    <div
+      className="w-1.5 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/40 active:bg-primary/60"
+      onPointerDown={(e) => {
+        startX.current = e.clientX
+        e.currentTarget.setPointerCapture(e.pointerId)
+      }}
+      onPointerMove={(e) => {
+        if (!e.currentTarget.hasPointerCapture(e.pointerId)) return
+        onDelta(e.clientX - startX.current)
+        startX.current = e.clientX
+      }}
+      onPointerUp={(e) => e.currentTarget.releasePointerCapture(e.pointerId)}
+    />
+  )
+}
+
 export default function App() {
   const [inputPath, setInputPath] = useState<string | null>(null)
   const [outputName, setOutputName] = useState("")
@@ -52,6 +71,11 @@ export default function App() {
   const [preview, setPreview] = useState<PointCloudPreview | null>(null)
   const [loading, setLoading] = useState(false)
   const [running, setRunning] = useState(false)
+  const [flipped, setFlipped] = useState(false)
+
+  // Panel widths
+  const [leftWidth, setLeftWidth] = useState(256)
+  const [midWidth, setMidWidth] = useState(288)
 
   async function handleLoad() {
     const selected = await open({
@@ -110,7 +134,10 @@ export default function App() {
       <Toaster richColors position="bottom-right" />
 
       {/* Linke Spalte — Datei */}
-      <aside className="flex w-64 shrink-0 flex-col gap-4 overflow-hidden border-r p-4">
+      <aside
+        className="flex shrink-0 flex-col gap-4 overflow-hidden p-4"
+        style={{ width: leftWidth }}
+      >
         <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Datei
         </h2>
@@ -141,7 +168,7 @@ export default function App() {
         )}
 
         {preview && preview.properties.length > 0 && (
-          <div className="flex min-h-0 flex-col gap-1">
+          <div className="flex min-h-0 flex-col gap-1 overflow-hidden">
             <p className="text-xs font-semibold text-muted-foreground">
               Eigenschaften ({preview.properties.length})
             </p>
@@ -165,10 +192,13 @@ export default function App() {
         )}
       </aside>
 
-      <Separator orientation="vertical" />
+      <ResizeHandle onDelta={(d) => setLeftWidth((w) => Math.min(480, Math.max(160, w + d)))} />
 
       {/* Mittlere Spalte — Operation */}
-      <aside className="flex w-72 shrink-0 flex-col gap-5 border-r p-4">
+      <aside
+        className="flex shrink-0 flex-col gap-5 p-4"
+        style={{ width: midWidth }}
+      >
         <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Operation
         </h2>
@@ -219,14 +249,26 @@ export default function App() {
         </div>
       </aside>
 
-      <Separator orientation="vertical" />
+      <ResizeHandle onDelta={(d) => setMidWidth((w) => Math.min(480, Math.max(200, w + d)))} />
 
       {/* Rechte Spalte — Vorschau */}
-      <main className="min-w-0 flex-1">
+      <main className="relative min-w-0 flex-1">
         <PointCloudViewer
           positions={preview?.positions ?? null}
           colors={preview?.has_rgb ? (preview.colors ?? null) : null}
+          flipped={flipped}
         />
+        {preview && (
+          <Button
+            variant={flipped ? "default" : "outline"}
+            size="icon"
+            className="absolute right-3 top-3 h-8 w-8"
+            title="Vorschau umdrehen"
+            onClick={() => setFlipped((f) => !f)}
+          >
+            <FlipVertical2 className="h-4 w-4" />
+          </Button>
+        )}
       </main>
     </div>
   )
