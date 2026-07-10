@@ -4,6 +4,36 @@ use operators::mip_splat_fuse::mip_splat_fuse;
 use operators::preview::read_ply_preview;
 use operators::splat_to_sketchfab::splat_to_sketchfab;
 
+use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind};
+use tauri::{AppHandle, Emitter, Wry};
+
+const SETTINGS_MENU_ID: &str = "settings";
+
+/// `Menu::default` gives us the OS-standard menu (Edit with cut/copy/paste,
+/// Window, Help, etc. — see `tauri::menu::Menu::default`). We just insert a
+/// "Settings…" item into the app menu (macOS) or File menu (Windows/Linux)
+/// rather than rebuilding the whole tree, so nothing standard is lost.
+fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
+    let menu = Menu::default(app)?;
+    let settings_item = MenuItemBuilder::new("Settings…")
+        .id(SETTINGS_MENU_ID)
+        .accelerator("CmdOrCtrl+,")
+        .build(app)?;
+
+    let app_name = &app.package_info().name;
+    for item in menu.items()? {
+        if let MenuItemKind::Submenu(submenu) = item {
+            let title = submenu.text()?;
+            if &title == app_name || title == "File" {
+                submenu.insert(&settings_item, 1)?;
+                break;
+            }
+        }
+    }
+
+    Ok(menu)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -15,6 +45,15 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            let menu = build_menu(app.handle())?;
+            app.set_menu(menu)?;
+            app.on_menu_event(|app_handle, event| {
+                if event.id().as_ref() == SETTINGS_MENU_ID {
+                    let _ = app_handle.emit("open-settings", ());
+                }
+            });
+
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
