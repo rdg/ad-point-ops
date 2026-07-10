@@ -44,6 +44,37 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      # Tag pushes (vX.Y.Z) use that as the version — the single source of
+      # truth, so tauri.conf.json never needs a manual bump-and-hope before
+      # tagging. workflow_dispatch runs have no tag, so they get a synthetic
+      # <base>.<run_number> version instead (numeric-only: WiX/MSI rejects
+      # semver prerelease/build metadata like "-dev.<sha>").
+      - name: Determine version
+        id: vars
+        shell: bash
+        run: |
+          SHORT_SHA=$(git rev-parse --short=7 HEAD)
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            BASE=$(node -p "require('./src-tauri/tauri.conf.json').version")
+            VERSION="${BASE}.${{ github.run_number }}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Set app version
+        shell: bash
+        run: |
+          node -e "
+            const fs = require('fs');
+            for (const path of ['src-tauri/tauri.conf.json', 'package.json']) {
+              const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+              data.version = '${{ steps.vars.outputs.version }}';
+              fs.writeFileSync(path, JSON.stringify(data, null, 2) + '\n');
+            }
+          "
+
       # On tag push: build + create a draft GitHub Release with installers attached.
       # On workflow_dispatch: build only, upload as workflow artifacts.
       - uses: tauri-apps/tauri-action@v0
@@ -60,7 +91,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: point-ops-${{ matrix.artifact-name }}
+          name: point-ops-${{ matrix.artifact-name }}-${{ steps.vars.outputs.version }}-${{ steps.vars.outputs.short_sha }}
           path: |
             src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
             src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
