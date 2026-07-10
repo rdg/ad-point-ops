@@ -10,9 +10,12 @@ use tauri::{AppHandle, Emitter, Wry};
 const SETTINGS_MENU_ID: &str = "settings";
 
 /// `Menu::default` gives us the OS-standard menu (Edit with cut/copy/paste,
-/// Window, Help, etc. — see `tauri::menu::Menu::default`). We just insert a
+/// Window, Help, etc. — see `tauri::menu::Menu::default`). We insert a
 /// "Settings…" item into the app menu (macOS) or File menu (Windows/Linux)
-/// rather than rebuilding the whole tree, so nothing standard is lost.
+/// rather than rebuilding the whole tree, so nothing standard is lost there.
+/// We do drop the Window/Help/View submenus — this is a single-window
+/// utility app, so they're just noise. Edit stays: the output-filename
+/// field needs its cut/copy/paste/select-all.
 fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let menu = Menu::default(app)?;
     let settings_item = MenuItemBuilder::new("Settings…")
@@ -21,14 +24,19 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         .build(app)?;
 
     let app_name = &app.package_info().name;
+    let mut to_remove = Vec::new();
     for item in menu.items()? {
         if let MenuItemKind::Submenu(submenu) = item {
             let title = submenu.text()?;
             if &title == app_name || title == "File" {
                 submenu.insert(&settings_item, 1)?;
-                break;
+            } else if title == "Window" || title == "Help" || title == "View" {
+                to_remove.push(submenu);
             }
         }
+    }
+    for submenu in to_remove {
+        menu.remove(&submenu)?;
     }
 
     Ok(menu)
