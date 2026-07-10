@@ -34,14 +34,21 @@ interface PointCloudPreview {
 
 const OPERATIONS = [
   { value: "splat-to-sketchfab", label: "Splat → Sketchfab" },
+  { value: "mip-splat-fuse", label: "Mip-Splat Fuse" },
 ] as const
 
 type Operation = (typeof OPERATIONS)[number]["value"]
+
+const OPERATION_COMMANDS: Record<Operation, string> = {
+  "splat-to-sketchfab": "splat_to_sketchfab",
+  "mip-splat-fuse": "mip_splat_fuse",
+}
 
 function deriveOutputName(inputPath: string, op: Operation): string {
   const filename = inputPath.replace(/\\/g, "/").split("/").pop() ?? "ausgabe"
   const stem = filename.replace(/\.ply$/i, "")
   if (op === "splat-to-sketchfab") return `${stem}_sketchfab.ply`
+  if (op === "mip-splat-fuse") return `${stem}_fused.ply`
   return `${stem}_ausgabe.ply`
 }
 
@@ -112,7 +119,7 @@ export default function App() {
     setRunning(true)
     await new Promise((r) => setTimeout(r, 0))
     try {
-      const msg = await invoke<string>("splat_to_sketchfab", {
+      const msg = await invoke<string>(OPERATION_COMMANDS[operation], {
         inputPath,
         outputPath,
       })
