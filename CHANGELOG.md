@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/rdg/ad-point-ops/compare/point-ops-v0.2.0...point-ops-v0.2.1) (2026-07-10)
+
+
+### Bug Fixes
+
+* gate the build job on release-please's output, not a tag push ([240532b](https://github.com/rdg/ad-point-ops/commit/240532b961cffbe2574d8b9adef8158044b427c1))
+* gate the build job on release-please's output, not a tag push ([4745879](https://github.com/rdg/ad-point-ops/commit/47458799b1e15f03dbfc75c1f5d8b4d46f9c7f49))
+
 ## [0.2.0](https://github.com/rdg/ad-point-ops/compare/point-ops-v0.1.0...point-ops-v0.2.0) (2026-07-10)
 
 
