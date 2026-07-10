@@ -14,15 +14,19 @@ Desktop workbench for manipulating point cloud files. Built with Vite + React, s
 ## Development
 
 ```bash
-pnpm install
-pnpm tauri dev      # full app with hot-reload
-pnpm dev            # Vite frontend only
-pnpm typecheck
-pnpm lint
-pnpm format
+just install        # pnpm install
+just tauri-dev       # full app with hot-reload
+just dev             # Vite frontend only
+just typecheck
+just lint
+just format
 ```
 
-Requires [Rust](https://rustup.rs) and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your platform.
+Run `just --list` for the full recipe list (grouped: setup, dev, quality, build). Requires [Rust](https://rustup.rs), [`just`](https://github.com/casey/just), and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your platform.
+
+## Batch mode
+
+Selecting more than one `.ply` file in the file picker switches to batch mode: pick an output folder once and the chosen operation runs across all selected files, with output filenames derived automatically per input.
 
 ## Operators
 
@@ -35,6 +39,10 @@ Spherical harmonics DC coefficients (`f_dc_0/1/2`) are converted to sRGB using:
 ```
 rgb = clamp(f_dc * 0.28209 + 0.5, 0, 1) × 255
 ```
+
+### Mip-Splat Fuse
+
+Bakes mip-splatting's per-vertex 3D smoothing filter (`filter_3D`) into `opacity` and `scale_*`, matching `GaussianModel.save_fused_ply` from the [mip-splatting](https://github.com/autonomousvision/mip-splatting) repo. Turns a mip-splatting training-output PLY (`iteration_*/point_cloud.ply`) into a standard Gaussian-splat PLY loadable in SuperSplat and similar viewers, without needing a Python/CUDA environment.
 
 ## Releases
 

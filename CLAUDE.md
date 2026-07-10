@@ -85,14 +85,15 @@ Lives in the guidance repo: `~/rhizomatic-preset/guidance/projects/point-ops/roa
 
 ## Dev commands
 
-```bash
-pnpm dev              # Vite dev server only
-pnpm tauri dev        # full Tauri dev build (frontend + Rust)
-pnpm build            # production frontend build
-pnpm tauri build      # production Tauri bundle
-pnpm lint
-pnpm format
-pnpm typecheck
-```
+Use `just <recipe>` (see `justfile`, grouped: setup, dev, quality, build) rather than calling `pnpm` directly:
 
-No `justfile` yet — use the scripts above directly.
+```bash
+just install          # pnpm install
+just dev              # Vite dev server only
+just tauri-dev        # full Tauri dev build (frontend + Rust)
+just build            # production frontend build
+just tauri-build      # production Tauri bundle
+just lint
+just format
+just typecheck
+```
