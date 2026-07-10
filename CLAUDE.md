@@ -73,11 +73,16 @@ Recommended Rust crates: `ply-rs` for PLY I/O, `rayon` for parallel vertex proce
 
 ## GitHub Actions
 
-`.github/workflows/release.yml` builds on push to `v*` tags:
-- **mac-silicon**: `macos-14` runner → `.dmg`
-- **windows-11**: `windows-2022` runner → `.msi`
+Two workflows, split by concern:
 
-Artifacts are attached to the GitHub Release.
+- **`.github/workflows/release-please.yml`** — runs on every push to `main`. Uses [release-please](https://github.com/googleapis/release-please) to read Conventional Commits (`feat:`, `fix:`, etc.) since the last release, and keeps a "chore(main): release X.Y.Z" PR up to date with the next version + changelog. Merging that PR is what actually creates the `vX.Y.Z` tag and the GitHub Release (with the changelog as its body) — nothing to do by hand.
+- **`.github/workflows/release.yml`** — builds on push to `v*` tags (or manually via `workflow_dispatch`):
+  - **mac-silicon**: `macos-14` runner → `.dmg`
+  - **windows-11**: `windows-2022` runner → `.msi`
+
+  On a tag push it just builds and attaches installers to the release release-please already created for that tag (`gh release upload`) — it does not create or manage the release itself. On `workflow_dispatch` (no tag) it stamps a synthetic `<base>.<run_number>` version and uploads as a plain workflow artifact instead.
+
+Version source of truth: release-please's manifest (`.release-please-manifest.json`) drives `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` (see `release-please-config.json`'s `extra-files`) — bump commit types, not files by hand.
 
 ## Roadmap
 

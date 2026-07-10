@@ -6,6 +6,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -75,17 +78,28 @@ jobs:
             }
           "
 
-      # On tag push: build + create a draft GitHub Release with installers attached.
-      # On workflow_dispatch: build only, upload as workflow artifacts.
+      # Just builds — release-please.yml owns creating the tag and the
+      # GitHub Release (with its changelog as the release body). We only
+      # attach installers to whichever one already exists for this tag.
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-          releaseName: point-ops ${{ github.ref_name }}
-          releaseDraft: true
-          prerelease: false
           args: --target ${{ matrix.target }}
+
+      - name: Attach installers to GitHub Release (tag push only)
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          files=(src-tauri/target/${{ matrix.target }}/release/bundle/${{ matrix.artifact-name }}/*.${{ matrix.artifact-name }})
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No .${{ matrix.artifact-name }} bundle found under src-tauri/target/${{ matrix.target }}/release/bundle/${{ matrix.artifact-name }}/" >&2
+            exit 1
+          fi
+          gh release upload "${{ github.ref_name }}" "${files[@]}" --clobber
 
       - name: Upload artifact (manual dispatch only)
         if: github.event_name == 'workflow_dispatch'

@@ -46,13 +46,14 @@ Bakes mip-splatting's per-vertex 3D smoothing filter (`filter_3D`) into `opacity
 
 ## Releases
 
-GitHub Actions builds `.dmg` (Apple Silicon) and `.msi` (Windows 11) installers on every `v*` tag push:
+Versioning and releases are automated with [release-please](https://github.com/googleapis/release-please) — no manual tagging:
 
-```bash
-git tag v0.1.0 && git push --tags
-```
+1. Merge commits to `main` using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, …).
+2. release-please keeps a "chore(main): release X.Y.Z" PR up to date with the next version (computed from those commit types) and an auto-generated changelog.
+3. Merging that PR creates the `vX.Y.Z` tag and a published GitHub Release with the changelog as its body.
+4. That tag push triggers `release.yml`, which builds `.dmg` (Apple Silicon) and `.msi` (Windows 11) and attaches them to the release release-please just created.
 
-Artifacts are attached as a draft GitHub Release for review before publishing.
+You can also trigger `release.yml` manually (`workflow_dispatch`) for an ad-hoc build — it gets a `<base>.<run_number>` version and uploads as a plain workflow artifact instead of a release, since there's no tag on that path.
 
 ## Project layout
 
@@ -66,7 +67,10 @@ src-tauri/
     operators/              one Rust module per operator
     lib.rs                  Tauri command registration
 .github/workflows/
+  release-please.yml        version bump PR + tag/release creation
   release.yml               cross-platform build pipeline
+release-please-config.json  release-please package config
+.release-please-manifest.json  current version per package
 ```
 
 ## Roadmap
