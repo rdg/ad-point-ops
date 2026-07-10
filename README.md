@@ -74,3 +74,7 @@ release-please-config.json  release-please package config
 ## Roadmap
 
 See [`~/rhizomatic-preset/guidance/projects/point-ops/roadmap.md`](../../../guidance/projects/point-ops/roadmap.md).
+
+## License
+
+[MIT](LICENSE). The Mip-Splat Fuse operator implements a formula independently derived from reading `GaussianModel.save_fused_ply` in [mip-splatting](https://github.com/autonomousvision/mip-splatting) (Inria/MPII, non-commercial research license) — no code from that repo is copied or bundled here, see the operator's doc comment for the derivation.
