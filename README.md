@@ -50,10 +50,9 @@ Versioning and releases are automated with [release-please](https://github.com/g
 
 1. Merge commits to `main` using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, …).
 2. release-please keeps a "chore(main): release X.Y.Z" PR up to date with the next version (computed from those commit types) and an auto-generated changelog.
-3. Merging that PR creates the `vX.Y.Z` tag and a published GitHub Release with the changelog as its body.
-4. That tag push triggers `release.yml`, which builds `.dmg` (Apple Silicon) and `.msi` (Windows 11) and attaches them to the release release-please just created.
+3. Merging that PR creates the `vX.Y.Z` tag and a published GitHub Release with the changelog as its body — the same workflow run then builds `.dmg` (Apple Silicon) and `.msi` (Windows 11) and attaches them to that release, gated on the release-please job's output rather than a separate tag-triggered workflow (a `GITHUB_TOKEN`-authored tag push doesn't fire other workflows).
 
-You can also trigger `release.yml` manually (`workflow_dispatch`) for an ad-hoc build — it gets a `<base>.<run_number>` version and uploads as a plain workflow artifact instead of a release, since there's no tag on that path.
+You can also trigger `release.yml` manually (`workflow_dispatch`) for an ad-hoc build — it gets a `<base>.<run_number>` version and uploads as a plain workflow artifact instead of a release, since there's no release on that path.
 
 ## Project layout
 
@@ -67,8 +66,7 @@ src-tauri/
     operators/              one Rust module per operator
     lib.rs                  Tauri command registration
 .github/workflows/
-  release-please.yml        version bump PR + tag/release creation
-  release.yml               cross-platform build pipeline
+  release.yml               release-please job + gated build/attach job
 release-please-config.json  release-please package config
 .release-please-manifest.json  current version per package
 ```
