@@ -73,14 +73,16 @@ Recommended Rust crates: `ply-rs` for PLY I/O, `rayon` for parallel vertex proce
 
 ## GitHub Actions
 
-Two workflows, split by concern:
+Single workflow (`.github/workflows/release.yml`), two jobs, triggered on push to `main` or manually via `workflow_dispatch`:
 
-- **`.github/workflows/release-please.yml`** — runs on every push to `main`. Uses [release-please](https://github.com/googleapis/release-please) to read Conventional Commits (`feat:`, `fix:`, etc.) since the last release, and keeps a "chore(main): release X.Y.Z" PR up to date with the next version + changelog. Merging that PR is what actually creates the `vX.Y.Z` tag and the GitHub Release (with the changelog as its body) — nothing to do by hand.
-- **`.github/workflows/release.yml`** — builds on push to `v*` tags (or manually via `workflow_dispatch`):
-  - **mac-silicon**: `macos-14` runner → `.dmg`
-  - **windows-11**: `windows-2022` runner → `.msi`
+1. **`release-please`** — uses [release-please](https://github.com/googleapis/release-please) to read Conventional Commits (`feat:`, `fix:`, etc.) since the last release, and keeps a "chore(main): release X.Y.Z" PR up to date with the next version + changelog. Merging that PR is what creates the `vX.Y.Z` tag and the GitHub Release (with the changelog as its body) — nothing to do by hand.
+2. **`build`** — `needs: release-please`; only runs when that job's `release_created` output is `true`, or on `workflow_dispatch`.
+   - **mac-silicon**: `macos-14` runner → `.dmg`
+   - **windows-11**: `windows-2022` runner → `.msi`
 
-  On a tag push it just builds and attaches installers to the release release-please already created for that tag (`gh release upload`) — it does not create or manage the release itself. On `workflow_dispatch` (no tag) it stamps a synthetic `<base>.<run_number>` version and uploads as a plain workflow artifact instead.
+   On a release it just builds and attaches installers to the release release-please already created (`gh release upload`) — it doesn't create or manage the release itself. On `workflow_dispatch` (no release) it stamps a synthetic `<base>.<run_number>` version and uploads as a plain workflow artifact instead.
+
+Deliberately **not** two separate workflows gated by a `push: tags: v*` trigger: release-please creates its tag/release using the default `GITHUB_TOKEN`, and GitHub Actions never fires other workflows from `GITHUB_TOKEN`-authored pushes (anti-recursion safeguard) — a tag-triggered `release.yml` would simply never run. Chaining via `needs:`/job outputs inside one workflow run sidesteps that entirely.
 
 Version source of truth: release-please's manifest (`.release-please-manifest.json`) drives `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` (see `release-please-config.json`'s `extra-files`) — bump commit types, not files by hand.
 
