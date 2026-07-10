@@ -28,6 +28,10 @@ Run `just --list` for the full recipe list (grouped: setup, dev, quality, build)
 
 Selecting more than one `.ply` file in the file picker switches to batch mode: pick an output folder once and the chosen operation runs across all selected files, with output filenames derived automatically per input.
 
+## Settings
+
+The native menu bar has a "Settings…" item (`Cmd+,` on macOS) that opens a dialog for the one current setting: **Language** (Deutsch / English NZ). Translations live in `src/i18n/index.ts` (i18next + react-i18next, inline resources, persisted to `localStorage`) — add new user-facing strings there rather than hardcoding text in components.
+
 ## Operators
 
 ### Splat → Sketchfab
