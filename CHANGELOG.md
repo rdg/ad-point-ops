@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/rdg/ad-point-ops/compare/point-ops-v0.2.1...point-ops-v0.3.0) (2026-07-10)
+
+
+### Features
+
+* settings dialog with language toggle (Deutsch / English NZ) ([7b83131](https://github.com/rdg/ad-point-ops/commit/7b831311c5c0b9635d131753938cb05b2c66cc6a))
+* trim menu bar to essentials, disable native right-click menu ([07e280c](https://github.com/rdg/ad-point-ops/commit/07e280c227fa60cb07e6b3da5c26621af8a44c6b))
+
+
+### Bug Fixes
+
+* settings menu duplication, add Open PLY to File menu ([ab0bbd1](https://github.com/rdg/ad-point-ops/commit/ab0bbd1e5fcc49178061ebd6502f345570ebeffe))
+* translate the empty-preview placeholder text ([a0aa960](https://github.com/rdg/ad-point-ops/commit/a0aa960a277f8e7a3c92afbf59991437c913b665))
+
 ## [0.2.1](https://github.com/rdg/ad-point-ops/compare/point-ops-v0.2.0...point-ops-v0.2.1) (2026-07-10)
 
 
