@@ -25,8 +25,15 @@ src-tauri/
 ## UI conventions
 
 - All UI uses shadcn/ui components. Do not reach for raw HTML elements where a shadcn component exists.
-- NZ English in user-visible strings (`colour`, `organisation`). Identifiers stay in US English.
+- The app is bilingual (German default, English NZ) via i18next — see "Internationalisation" below. Never hardcode user-visible strings in components; add a key to `src/i18n/index.ts` with both `de` and `en` translations instead. Identifiers stay in US English regardless of UI language.
 - Layout: single-window workbench — file picker on the left, operation config in the centre, 3D preview filling the right pane.
+
+## Internationalisation
+
+- `src/i18n/index.ts` — i18next + react-i18next, inline `de`/`en` resource objects (no external translation files/service). Default language is German; `en` is the fallback.
+- Language choice persists to `localStorage` (`point-ops-language`) and is changed via the Settings dialog (`src/components/SettingsDialog.tsx`), not by browser/OS locale detection.
+- Locale-aware number formatting (e.g. point counts) should use `LOCALES[i18n.language]` (`de-DE` / `en-NZ`) from `src/i18n/index.ts`, not a hardcoded locale string.
+- The native menu bar's "Settings…" item (`Cmd+,` on macOS) is built in `src-tauri/src/lib.rs` (`build_menu`, inserted into `Menu::default` rather than a hand-rolled tree, so standard Edit/Window/Help items are preserved) and emits an `open-settings` event the frontend listens for.
 
 ## Operators (Rust)
 

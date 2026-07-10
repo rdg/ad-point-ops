@@ -1,7 +1,9 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { open, save } from "@tauri-apps/plugin-dialog"
 import { invoke } from "@tauri-apps/api/core"
 import { join } from "@tauri-apps/api/path"
+import { listen } from "@tauri-apps/api/event"
 import { toast } from "sonner"
 import { FolderOpen, Play, Loader2, FileDown, FlipVertical2, Files } from "lucide-react"
 
@@ -18,6 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { PointCloudViewer } from "@/components/PointCloudViewer"
+import { SettingsDialog } from "@/components/SettingsDialog"
+import { LOCALES } from "@/i18n"
 
 interface PropertyInfo {
   name: string
@@ -46,11 +50,9 @@ const OPERATION_COMMANDS: Record<Operation, string> = {
 }
 
 function deriveOutputName(inputPath: string, op: Operation): string {
-  const filename = inputPath.replace(/\\/g, "/").split("/").pop() ?? "ausgabe"
+  const filename = inputPath.replace(/\\/g, "/").split("/").pop() ?? "output"
   const stem = filename.replace(/\.ply$/i, "")
-  if (op === "splat-to-sketchfab") return `${stem}_sketchfab.ply`
-  if (op === "mip-splat-fuse") return `${stem}_fused.ply`
-  return `${stem}_ausgabe.ply`
+  return op === "splat-to-sketchfab" ? `${stem}_sketchfab.ply` : `${stem}_fused.ply`
 }
 
 // Drag handle between panels
@@ -74,6 +76,7 @@ function ResizeHandle({ onDelta }: { onDelta: (delta: number) => void }) {
 }
 
 export default function App() {
+  const { t, i18n } = useTranslation()
   const [inputPath, setInputPath] = useState<string | null>(null)
   const [batchPaths, setBatchPaths] = useState<string[]>([])
   const [outputName, setOutputName] = useState("")
@@ -83,6 +86,7 @@ export default function App() {
   const [running, setRunning] = useState(false)
   const [flipped, setFlipped] = useState(false)
   const [pointSizeMultiplier, setPointSizeMultiplier] = useState(1)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Panel widths
   const [leftWidth, setLeftWidth] = useState(256)
@@ -90,11 +94,26 @@ export default function App() {
 
   const isBatch = batchPaths.length > 1
 
+  // Menu events fire outside React's render cycle and this effect only runs
+  // once, so route through a ref rather than closing over handleLoad
+  // directly — otherwise the menu action would keep calling a stale
+  // closure with whatever `operation` was set at mount time.
+  const handleLoadRef = useRef<() => void>(() => {})
+
+  useEffect(() => {
+    const unlistenSettings = listen("open-settings", () => setSettingsOpen(true))
+    const unlistenOpen = listen("open-file-dialog", () => handleLoadRef.current())
+    return () => {
+      unlistenSettings.then((fn) => fn())
+      unlistenOpen.then((fn) => fn())
+    }
+  }, [])
+
   async function handleLoad() {
     const selected = await open({
-      title: "PLY-Datei(en) öffnen",
+      title: t("file.loadDialogTitle"),
       multiple: true,
-      filters: [{ name: "Punktwolke", extensions: ["ply"] }],
+      filters: [{ name: t("file.filterName"), extensions: ["ply"] }],
     })
     if (!selected) return
     const paths = Array.isArray(selected) ? selected : [selected]
@@ -118,18 +137,22 @@ export default function App() {
       const result = await invoke<PointCloudPreview>("read_ply_preview", { path })
       setPreview(result)
     } catch (err) {
-      toast.error("Fehler beim Laden", { description: String(err) })
+      toast.error(t("toast.loadErrorTitle"), { description: String(err) })
     } finally {
       setLoading(false)
     }
   }
 
+  useEffect(() => {
+    handleLoadRef.current = handleLoad
+  })
+
   async function handleRun() {
     if (!inputPath) return
     const outputPath = await save({
-      title: "Ausgabe speichern unter",
+      title: t("operation.saveDialogTitle"),
       defaultPath: outputName,
-      filters: [{ name: "Punktwolke", extensions: ["ply"] }],
+      filters: [{ name: t("file.filterName"), extensions: ["ply"] }],
     })
     if (!outputPath) return
     setRunning(true)
@@ -139,9 +162,9 @@ export default function App() {
         inputPath,
         outputPath,
       })
-      toast.success("Fertig", { description: msg })
+      toast.success(t("toast.doneTitle"), { description: msg })
     } catch (err) {
-      toast.error("Fehler", { description: String(err) })
+      toast.error(t("toast.errorTitle"), { description: String(err) })
     } finally {
       setRunning(false)
     }
@@ -150,7 +173,7 @@ export default function App() {
   async function handleRunBatch() {
     if (batchPaths.length === 0) return
     const outDir = await open({
-      title: "Ausgabeordner wählen",
+      title: t("operation.outputFolderDialogTitle"),
       directory: true,
     })
     if (!outDir || typeof outDir !== "string") return
@@ -172,12 +195,16 @@ export default function App() {
     setRunning(false)
 
     if (failures.length === 0) {
-      toast.success("Batch fertig", {
-        description: `${succeeded} Datei(en) verarbeitet`,
+      toast.success(t("toast.batchDoneTitle"), {
+        description: t("toast.batchDoneDescription", { count: succeeded }),
       })
     } else {
-      toast.error("Batch teilweise fehlgeschlagen", {
-        description: `${succeeded} erfolgreich, ${failures.length} fehlgeschlagen: ${failures.join("; ")}`,
+      toast.error(t("toast.batchPartialTitle"), {
+        description: t("toast.batchPartialDescription", {
+          succeeded,
+          failed: failures.length,
+          details: failures.join("; "),
+        }),
       })
     }
   }
@@ -199,18 +226,18 @@ export default function App() {
         style={{ width: leftWidth }}
       >
         <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Datei
+          {t("file.heading")}
         </h2>
         <Button variant="outline" className="w-full justify-start gap-2" onClick={handleLoad}>
           <FolderOpen className="h-4 w-4" />
-          PLY laden
+          {t("file.load")}
         </Button>
 
         {isBatch && (
           <div className="rounded-md border bg-muted/40 p-3 text-xs">
             <p className="flex items-center gap-1 font-medium">
               <Files className="h-3.5 w-3.5" />
-              {batchPaths.length} Dateien ausgewählt
+              {t("file.batchSelectedCount", { count: batchPaths.length })}
             </p>
             <div className="mt-1 max-h-40 overflow-y-auto">
               {batchPaths.map((p) => {
@@ -232,15 +259,22 @@ export default function App() {
             </p>
             {preview && (
               <p className="mt-1 text-muted-foreground">
-                {preview.count.toLocaleString("de")} Punkte angezeigt
+                {t("file.pointsShown", {
+                  count: preview.count.toLocaleString(LOCALES[i18n.language] ?? "en"),
+                })}
                 {preview.total !== preview.count && (
-                  <> von {preview.total.toLocaleString("de")}</>
+                  <>
+                    {" "}
+                    {t("file.pointsOf", {
+                      total: preview.total.toLocaleString(LOCALES[i18n.language] ?? "en"),
+                    })}
+                  </>
                 )}
               </p>
             )}
             {loading && (
               <p className="mt-1 flex items-center gap-1 text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" /> Lädt…
+                <Loader2 className="h-3 w-3 animate-spin" /> {t("file.loading")}
               </p>
             )}
           </div>
@@ -249,7 +283,7 @@ export default function App() {
         {preview && preview.properties.length > 0 && (
           <div className="flex min-h-0 flex-col gap-1 overflow-hidden">
             <p className="text-xs font-semibold text-muted-foreground">
-              Eigenschaften ({preview.properties.length})
+              {t("file.properties", { count: preview.properties.length })}
             </p>
             <div className="min-h-0 flex-1 overflow-y-auto rounded-md border">
               <table className="w-full text-xs">
@@ -279,11 +313,11 @@ export default function App() {
         style={{ width: midWidth }}
       >
         <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Operation
+          {t("operation.heading")}
         </h2>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="op-select">Operation</Label>
+          <Label htmlFor="op-select">{t("operation.label")}</Label>
           <Select value={operation} onValueChange={handleOperationChange}>
             <SelectTrigger id="op-select">
               <SelectValue />
@@ -300,19 +334,20 @@ export default function App() {
 
         {isBatch ? (
           <p className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
-            Ausgabedateien werden automatisch benannt (z. B. <span className="font-mono">…_{operation === "mip-splat-fuse" ? "fused" : "sketchfab"}.ply</span>)
-            und beim Ausführen in einen gewählten Ordner geschrieben.
+            {t("operation.batchNote", {
+              suffix: operation === "mip-splat-fuse" ? "fused" : "sketchfab",
+            })}
           </p>
         ) : (
           <div className="flex flex-col gap-2">
-            <Label htmlFor="output-name">Ausgabedatei</Label>
+            <Label htmlFor="output-name">{t("operation.outputFile")}</Label>
             <div className="flex items-center gap-1">
               <FileDown className="h-4 w-4 shrink-0 text-muted-foreground" />
               <Input
                 id="output-name"
                 value={outputName}
                 onChange={(e) => setOutputName(e.target.value)}
-                placeholder="ausgabe.ply"
+                placeholder={t("operation.outputPlaceholder")}
                 className="font-mono text-xs"
               />
             </div>
@@ -331,10 +366,10 @@ export default function App() {
               <Play className="h-4 w-4" />
             )}
             {running
-              ? "Läuft…"
+              ? t("operation.running")
               : isBatch
-                ? `Batch ausführen (${batchPaths.length})`
-                : "Ausführen"}
+                ? t("operation.runBatch", { count: batchPaths.length })
+                : t("operation.run")}
           </Button>
         </div>
       </aside>
@@ -345,7 +380,7 @@ export default function App() {
       <main className="relative min-w-0 flex-1">
         {isBatch ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Keine Vorschau im Batch-Modus — {batchPaths.length} Dateien werden verarbeitet.
+            {t("preview.batchPlaceholder", { count: batchPaths.length })}
           </div>
         ) : (
           <PointCloudViewer
@@ -369,7 +404,7 @@ export default function App() {
               variant={flipped ? "default" : "outline"}
               size="icon"
               className="h-8 w-8"
-              title="Vorschau umdrehen"
+              title={t("preview.flipTitle")}
               onClick={() => setFlipped((f) => !f)}
             >
               <FlipVertical2 className="h-4 w-4" />
@@ -377,6 +412,8 @@ export default function App() {
           </div>
         )}
       </main>
+
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   )
 }
