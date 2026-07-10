@@ -94,10 +94,18 @@ export default function App() {
 
   const isBatch = batchPaths.length > 1
 
+  // Menu events fire outside React's render cycle and this effect only runs
+  // once, so route through a ref rather than closing over handleLoad
+  // directly — otherwise the menu action would keep calling a stale
+  // closure with whatever `operation` was set at mount time.
+  const handleLoadRef = useRef<() => void>(() => {})
+
   useEffect(() => {
-    const unlisten = listen("open-settings", () => setSettingsOpen(true))
+    const unlistenSettings = listen("open-settings", () => setSettingsOpen(true))
+    const unlistenOpen = listen("open-file-dialog", () => handleLoadRef.current())
     return () => {
-      unlisten.then((fn) => fn())
+      unlistenSettings.then((fn) => fn())
+      unlistenOpen.then((fn) => fn())
     }
   }, [])
 
@@ -134,6 +142,10 @@ export default function App() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    handleLoadRef.current = handleLoad
+  })
 
   async function handleRun() {
     if (!inputPath) return
