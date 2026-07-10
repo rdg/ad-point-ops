@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { useTranslation } from "react-i18next"
 import * as THREE from "three"
 import { OrbitControls } from "three/addons/controls/OrbitControls.js"
 
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function PointCloudViewer({ positions, colors, flipped, pointSizeMultiplier }: Props) {
+  const { t } = useTranslation()
   const mountRef = useRef<HTMLDivElement>(null)
   const pointsRef = useRef<THREE.Points | null>(null)
   const baseSizeRef = useRef<number>(0.01)
@@ -122,7 +124,7 @@ export function PointCloudViewer({ positions, colors, flipped, pointSizeMultipli
     <div ref={mountRef} className="relative h-full w-full">
       {!positions && (
         <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
-          PLY-Datei laden, um die Vorschau anzuzeigen
+          {t("preview.emptyState")}
         </div>
       )}
     </div>

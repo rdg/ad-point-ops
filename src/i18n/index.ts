@@ -39,6 +39,7 @@ const resources = {
         batchPlaceholder:
           "Keine Vorschau im Batch-Modus — {{count}} Dateien werden verarbeitet.",
         flipTitle: "Vorschau umdrehen",
+        emptyState: "PLY-Datei laden, um die Vorschau anzuzeigen",
       },
       toast: {
         loadErrorTitle: "Fehler beim Laden",
@@ -88,6 +89,7 @@ const resources = {
       preview: {
         batchPlaceholder: "No preview in batch mode — {{count}} files will be processed.",
         flipTitle: "Flip preview",
+        emptyState: "Load a PLY file to see the preview",
       },
       toast: {
         loadErrorTitle: "Failed to load",
