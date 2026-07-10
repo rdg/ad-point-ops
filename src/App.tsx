@@ -1,8 +1,9 @@
 import { useRef, useState } from "react"
 import { open, save } from "@tauri-apps/plugin-dialog"
 import { invoke } from "@tauri-apps/api/core"
+import { join } from "@tauri-apps/api/path"
 import { toast } from "sonner"
-import { FolderOpen, Play, Loader2, FileDown, FlipVertical2 } from "lucide-react"
+import { FolderOpen, Play, Loader2, FileDown, FlipVertical2, Files } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -74,6 +75,7 @@ function ResizeHandle({ onDelta }: { onDelta: (delta: number) => void }) {
 
 export default function App() {
   const [inputPath, setInputPath] = useState<string | null>(null)
+  const [batchPaths, setBatchPaths] = useState<string[]>([])
   const [outputName, setOutputName] = useState("")
   const [operation, setOperation] = useState<Operation>("splat-to-sketchfab")
   const [preview, setPreview] = useState<PointCloudPreview | null>(null)
@@ -86,13 +88,27 @@ export default function App() {
   const [leftWidth, setLeftWidth] = useState(256)
   const [midWidth, setMidWidth] = useState(288)
 
+  const isBatch = batchPaths.length > 1
+
   async function handleLoad() {
     const selected = await open({
-      title: "PLY-Datei öffnen",
+      title: "PLY-Datei(en) öffnen",
+      multiple: true,
       filters: [{ name: "Punktwolke", extensions: ["ply"] }],
     })
     if (!selected) return
-    const path = typeof selected === "string" ? selected : selected[0]
+    const paths = Array.isArray(selected) ? selected : [selected]
+
+    if (paths.length > 1) {
+      setBatchPaths(paths)
+      setInputPath(null)
+      setPreview(null)
+      setOutputName("")
+      return
+    }
+
+    const path = paths[0]
+    setBatchPaths([])
     setInputPath(path)
     setOutputName(deriveOutputName(path, operation))
     setLoading(true)
@@ -131,6 +147,41 @@ export default function App() {
     }
   }
 
+  async function handleRunBatch() {
+    if (batchPaths.length === 0) return
+    const outDir = await open({
+      title: "Ausgabeordner wählen",
+      directory: true,
+    })
+    if (!outDir || typeof outDir !== "string") return
+
+    setRunning(true)
+    await new Promise((r) => setTimeout(r, 0))
+    let succeeded = 0
+    const failures: string[] = []
+    for (const path of batchPaths) {
+      const filename = path.replace(/\\/g, "/").split("/").pop() ?? path
+      try {
+        const outputPath = await join(outDir, deriveOutputName(path, operation))
+        await invoke<string>(OPERATION_COMMANDS[operation], { inputPath: path, outputPath })
+        succeeded++
+      } catch (err) {
+        failures.push(`${filename}: ${String(err)}`)
+      }
+    }
+    setRunning(false)
+
+    if (failures.length === 0) {
+      toast.success("Batch fertig", {
+        description: `${succeeded} Datei(en) verarbeitet`,
+      })
+    } else {
+      toast.error("Batch teilweise fehlgeschlagen", {
+        description: `${succeeded} erfolgreich, ${failures.length} fehlgeschlagen: ${failures.join("; ")}`,
+      })
+    }
+  }
+
   function handleOperationChange(val: Operation) {
     setOperation(val)
     if (inputPath) setOutputName(deriveOutputName(inputPath, val))
@@ -154,6 +205,25 @@ export default function App() {
           <FolderOpen className="h-4 w-4" />
           PLY laden
         </Button>
+
+        {isBatch && (
+          <div className="rounded-md border bg-muted/40 p-3 text-xs">
+            <p className="flex items-center gap-1 font-medium">
+              <Files className="h-3.5 w-3.5" />
+              {batchPaths.length} Dateien ausgewählt
+            </p>
+            <div className="mt-1 max-h-40 overflow-y-auto">
+              {batchPaths.map((p) => {
+                const name = p.replace(/\\/g, "/").split("/").pop() ?? p
+                return (
+                  <p key={p} className="truncate font-mono text-muted-foreground" title={p}>
+                    {name}
+                  </p>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {filename && (
           <div className="rounded-md border bg-muted/40 p-3 text-xs">
@@ -228,32 +298,43 @@ export default function App() {
           </Select>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="output-name">Ausgabedatei</Label>
-          <div className="flex items-center gap-1">
-            <FileDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <Input
-              id="output-name"
-              value={outputName}
-              onChange={(e) => setOutputName(e.target.value)}
-              placeholder="ausgabe.ply"
-              className="font-mono text-xs"
-            />
+        {isBatch ? (
+          <p className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+            Ausgabedateien werden automatisch benannt (z. B. <span className="font-mono">…_{operation === "mip-splat-fuse" ? "fused" : "sketchfab"}.ply</span>)
+            und beim Ausführen in einen gewählten Ordner geschrieben.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="output-name">Ausgabedatei</Label>
+            <div className="flex items-center gap-1">
+              <FileDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <Input
+                id="output-name"
+                value={outputName}
+                onChange={(e) => setOutputName(e.target.value)}
+                placeholder="ausgabe.ply"
+                className="font-mono text-xs"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-auto">
           <Button
             className="w-full gap-2"
-            disabled={!inputPath || running}
-            onClick={handleRun}
+            disabled={(!inputPath && !isBatch) || running}
+            onClick={isBatch ? handleRunBatch : handleRun}
           >
             {running ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Play className="h-4 w-4" />
             )}
-            {running ? "Läuft…" : "Ausführen"}
+            {running
+              ? "Läuft…"
+              : isBatch
+                ? `Batch ausführen (${batchPaths.length})`
+                : "Ausführen"}
           </Button>
         </div>
       </aside>
@@ -262,13 +343,19 @@ export default function App() {
 
       {/* Rechte Spalte — Vorschau */}
       <main className="relative min-w-0 flex-1">
-        <PointCloudViewer
-          positions={preview?.positions ?? null}
-          colors={preview?.has_rgb ? (preview.colors ?? null) : null}
-          flipped={flipped}
-          pointSizeMultiplier={pointSizeMultiplier}
-        />
-        {preview && (
+        {isBatch ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            Keine Vorschau im Batch-Modus — {batchPaths.length} Dateien werden verarbeitet.
+          </div>
+        ) : (
+          <PointCloudViewer
+            positions={preview?.positions ?? null}
+            colors={preview?.has_rgb ? (preview.colors ?? null) : null}
+            flipped={flipped}
+            pointSizeMultiplier={pointSizeMultiplier}
+          />
+        )}
+        {!isBatch && preview && (
           <div className="absolute right-3 top-3 flex items-center gap-2">
             <Slider
               min={0.25}
