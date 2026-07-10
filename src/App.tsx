@@ -265,7 +265,7 @@ export default function App() {
           <div className="absolute right-3 top-3 flex items-center gap-2">
             <Slider
               min={0.25}
-              max={4}
+              max={20}
               step={0.05}
               value={[pointSizeMultiplier]}
               onValueChange={([v]) => setPointSizeMultiplier(v)}
